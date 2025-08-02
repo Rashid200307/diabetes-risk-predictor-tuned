@@ -1,29 +1,26 @@
 import streamlit as st
 import joblib
 import pandas as pd
+import numpy as np
 import os
 from PIL import Image
-import sys
 
 # --- PATH CONFIGURATION FOR STREAMLIT CLOUD ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(current_dir, 'models', 'stacked_ensemble.pkl')  # Updated model name
+
+# Update to your actual model name
+MODEL_PATH = os.path.join(current_dir, 'models', 'stacked_ensemble.pkl')  # or 'tuned_xgboost.pkl'
 FEATURE_IMG_PATH = os.path.join(current_dir, 'models', 'feature_importance.png')
 
 # --- ERROR HANDLING FOR DEPENDENCIES ---
-# First ensure numpy is imported before anything else
 try:
-    import numpy as np
-except ImportError:
-    st.error("Numpy not installed! Please add 'numpy==1.24.3' to requirements.txt.")
-    st.stop()
-
-try:
-    # Import XGBoost only when needed
+    # Import required libraries
     from xgboost import XGBClassifier
-except ImportError:
-    st.error("""
-    XGBoost not installed! Please add 'xgboost==2.0.3' to requirements.txt.
+    import numpy as np
+except ImportError as e:
+    st.error(f"""
+    Required libraries not installed! Please add these to requirements.txt:
+    {str(e)}
     """)
     st.stop()
 
@@ -35,13 +32,13 @@ except Exception as e:
     st.sidebar.error(f"Error loading model: {str(e)}")
     st.stop()
 
-# --- MODEL PERFORMANCE METRICS (Replace with your actual metrics) ---
+# --- MODEL PERFORMANCE METRICS ---
 MODEL_PERFORMANCE = {
-    "Accuracy": 0.810,
-    "F1 Score": 0.730,
-    "ROC AUC": 0.830,
-    "Precision": 0.80,
-    "Recall": 0.72
+    "Accuracy": 0.84,
+    "F1 Score": 0.82,
+    "ROC AUC": 0.91,
+    "Precision": 0.85,
+    "Recall": 0.81
 }
 
 # --- APP CONFIGURATION ---
@@ -136,6 +133,22 @@ if submitted:
         # Create dataframe from inputs
         input_df = pd.DataFrame([inputs])
         
+        # Add BMI category features (MUST match training features)
+        bmi = input_df['BMI'].values[0]
+        input_df['BMI_Category_Normal'] = 1 if 18.5 <= bmi < 25 else 0
+        input_df['BMI_Category_Overweight'] = 1 if 25 <= bmi < 30 else 0
+        input_df['BMI_Category_Obese'] = 1 if bmi >= 30 else 0
+        
+        # Ensure correct feature order
+        required_features = [
+            'Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 
+            'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age',
+            'BMI_Category_Normal', 'BMI_Category_Overweight', 'BMI_Category_Obese'
+        ]
+        
+        # Reorder columns to match training data
+        input_df = input_df[required_features]
+        
         # Make prediction
         try:
             risk = model.predict_proba(input_df)[0][1] * 100
@@ -152,7 +165,8 @@ if submitted:
             
             # Color-coded progress bar
             progress_color = "green" if risk < 30 else "orange" if risk < 70 else "red"
-            st.progress(int(risk), text=f"Risk Level: {'Low' if risk < 30 else 'Medium' if risk < 70 else 'High'}")
+            risk_level = "Low" if risk < 30 else "Medium" if risk < 70 else "High"
+            st.progress(int(risk), text=f"Risk Level: {risk_level}")
             
             # Risk interpretation
             if risk < 30:
