@@ -1,34 +1,23 @@
 import streamlit as st
 import joblib
 import pandas as pd
-import numpy as np
 import os
 from PIL import Image
+import sys
 
-# --- PATH CONFIGURATION ---
+# --- PATH CONFIGURATION FOR STREAMLIT CLOUD ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(current_dir, 'models')
-
-# Try different model file names
-MODEL_FILES = [
-    'stacked_ensemble.pkl',  # First try the ensemble model
-    'tuned_xgboost.pkl',     # Then try the tuned model
-    'xgboost.pkl'            # Finally try the original
-]
-
-# Find the first existing model file
-model_path = None
-for model_file in MODEL_FILES:
-    candidate_path = os.path.join(MODEL_DIR, model_file)
-    if os.path.exists(candidate_path):
-        model_path = candidate_path
-        break
-
-if model_path is None:
-    st.error("❌ Model file not found! Please check your models directory.")
-    st.stop()
+MODEL_PATH = os.path.join(current_dir, 'models', 'stacked_ensemble.pkl')  # Updated model name
+FEATURE_IMG_PATH = os.path.join(current_dir, 'models', 'feature_importance.png')
 
 # --- ERROR HANDLING FOR DEPENDENCIES ---
+# First ensure numpy is imported before anything else
+try:
+    import numpy as np
+except ImportError:
+    st.error("Numpy not installed! Please add 'numpy==1.24.3' to requirements.txt.")
+    st.stop()
+
 try:
     # Import XGBoost only when needed
     from xgboost import XGBClassifier
@@ -40,20 +29,19 @@ except ImportError:
 
 # Load the trained model
 try:
-    model = joblib.load(model_path)
-    st.sidebar.success(f"✅ Model loaded successfully from: {os.path.basename(model_path)}")
+    model = joblib.load(MODEL_PATH)
+    st.sidebar.success("Model loaded successfully!")
 except Exception as e:
-    st.sidebar.error(f"❌ Error loading model: {str(e)}")
+    st.sidebar.error(f"Error loading model: {str(e)}")
     st.stop()
 
-# --- MODEL PERFORMANCE METRICS (Update with your actual metrics) ---
-# Default metrics (replace with your tuned model's actual metrics)
+# --- MODEL PERFORMANCE METRICS (Replace with your actual metrics) ---
 MODEL_PERFORMANCE = {
-    "Accuracy": 0.84,
-    "F1 Score": 0.82,
-    "ROC AUC": 0.91,
-    "Precision": 0.83,
-    "Recall": 0.81
+    "Accuracy": 0.810,
+    "F1 Score": 0.730,
+    "ROC AUC": 0.830,
+    "Precision": 0.80,
+    "Recall": 0.72
 }
 
 # --- APP CONFIGURATION ---
@@ -76,22 +64,21 @@ st.title(titles[lang])
 # --- MODEL TRUST SECTION ---
 with st.expander("About Our Model" if lang == "English" else "Tentang Model Kami", expanded=True):
     # Performance metrics in columns
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Accuracy", f"{MODEL_PERFORMANCE['Accuracy']*100:.1f}%")
     col2.metric("ROC AUC", f"{MODEL_PERFORMANCE['ROC AUC']:.3f}")
     col3.metric("F1 Score", f"{MODEL_PERFORMANCE['F1 Score']:.3f}")
-    col4.metric("Precision", f"{MODEL_PERFORMANCE['Precision']*100:.1f}%")
-    col5.metric("Recall", f"{MODEL_PERFORMANCE['Recall']*100:.1f}%")
+    col4.metric("Recall", f"{MODEL_PERFORMANCE['Recall']*100:.1f}%")
 
     # Model description
     st.info("""
     Our machine learning model was trained on a comprehensive dataset of medical records 
-    and has been rigorously validated for accuracy. It uses an ensemble of advanced algorithms 
-    optimized for medical prediction tasks.
+    and has been rigorously validated for accuracy. It uses the XGBoost algorithm, 
+    which is known for its high performance in medical prediction tasks.
     """ if lang == "English" else """
     Model pembelajaran mesin kami telah dilatih pada set data komprehensif rekod perubatan 
-    dan telah divalidasi dengan ketat untuk ketepatan. Ia menggunakan ensemble algoritma 
-    termaju yang dioptimumkan untuk tugas peramalan perubatan.
+    dan telah divalidasi dengan ketat untuk ketepatan. Ia menggunakan algoritma XGBoost, 
+    yang terkenal dengan prestasi tinggi dalam tugas peramalan perubatan.
     """)
 
 # --- INPUT FORM ---
@@ -165,8 +152,7 @@ if submitted:
             
             # Color-coded progress bar
             progress_color = "green" if risk < 30 else "orange" if risk < 70 else "red"
-            risk_level = "Low" if risk < 30 else "Medium" if risk < 70 else "High"
-            st.progress(int(risk), text=f"Risk Level: {risk_level}")
+            st.progress(int(risk), text=f"Risk Level: {'Low' if risk < 30 else 'Medium' if risk < 70 else 'High'}")
             
             # Risk interpretation
             if risk < 30:
@@ -245,54 +231,40 @@ if st.sidebar.checkbox("Show Feature Importance" if lang == "English" else "Tunj
         with st.container():
             st.subheader("Feature Importance" if lang == "English" else "Kepentingan Ciri")
             
-            # Try different image paths
-            image_paths = [
-                os.path.join(MODEL_DIR, 'feature_importance_comparison.png'),
-                os.path.join(MODEL_DIR, 'feature_importance.png')
-            ]
+            # Add styled box with theme-adaptive colors
+            st.markdown(f"""
+            <style>
+            .feature-box {{
+                background-color: {"#1e1e1e" if is_dark_theme else "#ffffff"};
+                padding: 15px;
+                border-radius: 10px;
+                border: 1px solid {"#444" if is_dark_theme else "#e6e9ef"};
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                margin-bottom: 15px;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
             
-            found_image = None
-            for img_path in image_paths:
-                if os.path.exists(img_path):
-                    found_image = img_path
-                    break
+            # Apply the style
+            st.markdown('<div class="feature-box">', unsafe_allow_html=True)
             
-            if found_image:
-                # Add styled box with theme-adaptive colors
-                st.markdown(f"""
-                <style>
-                .feature-box {{
-                    background-color: {"#1e1e1e" if is_dark_theme else "#ffffff"};
-                    padding: 15px;
-                    border-radius: 10px;
-                    border: 1px solid {"#444" if is_dark_theme else "#e6e9ef"};
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                    margin-bottom: 15px;
-                }}
-                </style>
-                """, unsafe_allow_html=True)
-                
-                # Apply the style
-                st.markdown('<div class="feature-box">', unsafe_allow_html=True)
-                
-                # Display image with proper sizing
-                st.image(found_image, use_container_width=True)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Caption with theme-appropriate color
-                caption_color = "#ffffff" if is_dark_theme else "#000000"
-                st.markdown(
-                    f"<div style='color: {caption_color}; margin-top: 10px;'>"
-                    f"How different health factors contribute to diabetes risk" if lang == "English" else 
-                    "Bagaimana faktor kesihatan berbeza menyumbang kepada risiko kencing manis"
-                    "</div>", 
-                    unsafe_allow_html=True
-                )
-            else:
-                st.warning("Feature importance image not found")
+            # Display image with proper sizing
+            st.image(FEATURE_IMG_PATH, use_container_width=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Caption with theme-appropriate color
+            caption_color = "#ffffff" if is_dark_theme else "#000000"
+            st.markdown(
+                f"<div style='color: {caption_color}; margin-top: 10px;'>"
+                f"How different health factors contribute to diabetes risk" if lang == "English" else 
+                "Bagaimana faktor kesihatan berbeza menyumbang kepada risiko kencing manis"
+                "</div>", 
+                unsafe_allow_html=True
+            )
+            
     except Exception as e:
-        st.warning(f"Error loading feature importance: {str(e)}")
+        st.warning(f"Feature importance image not found: {str(e)}")
 
 # Model disclaimer
 st.sidebar.divider()
