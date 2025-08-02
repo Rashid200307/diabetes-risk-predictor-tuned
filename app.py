@@ -34,11 +34,11 @@ except Exception as e:
 
 # --- MODEL PERFORMANCE METRICS ---
 MODEL_PERFORMANCE = {
-    "Accuracy": 0.84,
-    "F1 Score": 0.82,
-    "ROC AUC": 0.91,
-    "Precision": 0.85,
-    "Recall": 0.81
+    "Accuracy": 0.733766,
+    "F1 Score": 0.577320,
+    "ROC AUC": 0.808704,
+    "Precision": 0.651163,
+    "Recall": 0.518519
 }
 
 # --- APP CONFIGURATION ---
